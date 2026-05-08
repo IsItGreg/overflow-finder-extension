@@ -6,10 +6,14 @@ Adds an **Overflow Finder** tab to DevTools. Click **Scan** and you get a ranked
 
 ## Install (unpacked)
 
+```bash
+git clone https://github.com/IsItGreg/overflow-finder-extension.git
+```
+
 1. Open `chrome://extensions`.
 2. Toggle **Developer mode** on (top right).
 3. Click **Load unpacked**.
-4. Select the `overflow-finder/` directory.
+4. Select the cloned repo's directory (`overflow-finder-extension/`).
 5. Open any page → open DevTools → **Overflow Finder** tab → click **Scan**.
 
 To verify the install works, click the **Test page ↗** link in the top-right of the Overflow Finder panel — it opens the bundled `test/fixtures.html` in a new tab. Resize the window to ~375px wide and run a scan. You should see ~10 culprits with axis labels, sizes, and likely causes.
@@ -30,16 +34,21 @@ Element references stay in the page (`window.__overflowFinder.lastResults`); onl
 ## File layout
 
 ```
-overflow-finder/
+.
 ├── manifest.json     # MV3, declares devtools_page
 ├── devtools.html     # Entry shim that loads devtools.js
 ├── devtools.js       # Registers the Overflow Finder panel
 ├── panel.html        # Panel UI shell
 ├── panel.js          # Scan trigger, list rendering, hover/click handlers
 ├── panel.css         # Styling (auto dark/light)
+├── icons/            # 16/32/48/128 PNG icons
 ├── inject/
 │   ├── scan.js       # Detection algorithm — eval'd into the inspected page
 │   └── overlay.js    # On-page highlight box — eval'd into the inspected page
 └── test/
     └── fixtures.html # Sample page with planted culprits for manual testing
 ```
+
+## License
+
+MIT — see [LICENSE](LICENSE).
