@@ -49,6 +49,10 @@ Element references stay in the page (`window.__overflowFinder.lastResults`); onl
     └── fixtures.html # Sample page with planted culprits for manual testing
 ```
 
+## Privacy
+
+Overflow Finder collects no data, sends no telemetry, and makes no network requests. All scanning happens locally inside your DevTools session — element references and metadata never leave the page.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
