@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Overflow Finder — fixtures</title>
+    <style>
+      body {
+        margin: 0;
+        font: 14px system-ui, sans-serif;
+        background: #fafafa;
+        color: #222;
+      }
+      h1 { padding: 12px 16px; margin: 0; background: #fff; border-bottom: 1px solid #ddd; }
+      h2 { margin: 16px 16px 4px; font-size: 13px; color: #666; }
+      section { padding: 8px 16px 16px; border-bottom: 1px solid #eee; }
+      .container { background: #fff; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
+
+      /* 1. Fixed-width child wider than viewport */
+      .fixed-wide { width: 1400px; height: 32px; background: #fce4ec; padding: 6px; }
+
+      /* 2. <pre> with white-space: nowrap and a long line */
+      .longpre { white-space: nowrap; background: #e3f2fd; padding: 6px; }
+
+      /* 3. Negative margin pushing element to the right */
+      .neg-margin {
+        background: #fff3e0;
+        padding: 6px;
+        margin-right: -800px;
+      }
+
+      /* 4. Position: absolute placed off-screen */
+      .abs-offscreen {
+        position: absolute;
+        left: 100vw;
+        background: #f3e5f5;
+        padding: 6px;
+        white-space: nowrap;
+      }
+
+      /* 5. transform: translateX */
+      .translate-x {
+        transform: translateX(600px);
+        background: #e8f5e9;
+        padding: 6px;
+        display: inline-block;
+      }
+
+      /* 6. Image without max-width */
+      img.wide {
+        display: block;
+        /* an inline SVG via data URL so the page works offline */
+      }
+
+      /* 7. Flex item missing min-width: 0 */
+      .flex-row { display: flex; gap: 8px; }
+      .flex-row .narrow { flex: 0 0 80px; background: #ede7f6; padding: 6px; }
+      .flex-row .grow {
+        flex: 1 1 auto;
+        background: #fffde7;
+        padding: 6px;
+        white-space: nowrap;
+        overflow: visible;
+      }
+
+      /* 8. Table without table-layout: fixed and very wide content */
+      table.wide-table { background: #fff; }
+      table.wide-table td { white-space: nowrap; padding: 4px 8px; border: 1px solid #ddd; }
+
+      /* 9. Vertical-axis culprit: tall fixed-height block */
+      .tall {
+        height: 1500px;
+        background: linear-gradient(#fff8e1, #ffe0b2);
+        padding: 6px;
+      }
+
+      /* 10. Vertical-axis: position: absolute below viewport */
+      .abs-below {
+        position: absolute;
+        top: 110vh;
+        left: 16px;
+        background: #ffebee;
+        padding: 6px;
+      }
+
+      /* 11. Innocent bystander: clipped by overflow:hidden so should NOT be reported */
+      .clipped-host {
+        overflow: hidden;
+        background: #ffffff;
+        border: 1px dashed #999;
+        padding: 6px;
+      }
+      .clipped-host .inside { width: 1400px; height: 24px; background: #cfd8dc; }
+    </style>
+  </head>
+  <body>
+    <h1>Overflow Finder — fixture page</h1>
+    <p style="padding: 0 16px; color:#666;">
+      Open DevTools → Overflow Finder → Scan. Resize the window narrow (≈ 375px) for the most dramatic results.
+      Each section below contains one or more planted culprits.
+    </p>
+
+    <section>
+      <h2>1. Fixed-width child wider than viewport</h2>
+      <div class="container"><div class="fixed-wide">width: 1400px</div></div>
+    </section>
+
+    <section>
+      <h2>2. &lt;pre&gt; with white-space: nowrap</h2>
+      <div class="container"><pre class="longpre">function veryLongIdentifierName(thatNeverWraps, becauseItHasNoSpaces, andKeepsGoing, forever, andEverAndEver) { return null; }</pre></div>
+    </section>
+
+    <section>
+      <h2>3. Negative margin</h2>
+      <div class="container"><div class="neg-margin">margin-right: -800px</div></div>
+    </section>
+
+    <section>
+      <h2>4. Absolutely positioned off-screen</h2>
+      <div class="container" style="position: relative; min-height: 36px;">
+        <div class="abs-offscreen">position: absolute; left: 100vw</div>
+      </div>
+    </section>
+
+    <section>
+      <h2>5. transform: translateX</h2>
+      <div class="container"><span class="translate-x">transform: translateX(600px)</span></div>
+    </section>
+
+    <section>
+      <h2>6. &lt;img&gt; with no max-width</h2>
+      <div class="container">
+        <img class="wide" alt="wide bar"
+             src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='1600' height='30'><rect width='1600' height='30' fill='%23ffcdd2'/></svg>">
+      </div>
+    </section>
+
+    <section>
+      <h2>7. Flex item missing min-width: 0</h2>
+      <div class="container">
+        <div class="flex-row">
+          <div class="narrow">narrow</div>
+          <div class="grow">aVeryLongUnbreakableIdentifierThatRefusesToShrinkInsideAFlexItemBecauseMinWidthIsAuto</div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>8. Wide table (table-layout: auto)</h2>
+      <div class="container">
+        <table class="wide-table">
+          <tr>
+            <td>aVeryLongCellOne</td><td>aVeryLongCellTwo</td><td>aVeryLongCellThree</td>
+            <td>aVeryLongCellFour</td><td>aVeryLongCellFive</td><td>aVeryLongCellSix</td>
+            <td>aVeryLongCellSeven</td><td>aVeryLongCellEight</td>
+          </tr>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <h2>9. Vertical: tall fixed-height block</h2>
+      <div class="container"><div class="tall">height: 1500px</div></div>
+    </section>
+
+    <section>
+      <h2>10. Vertical: absolutely positioned below viewport</h2>
+      <div style="position: relative; height: 40px;" class="container">
+        <div class="abs-below">top: 110vh</div>
+      </div>
+    </section>
+
+    <section>
+      <h2>11. Innocent bystander (should NOT appear in results)</h2>
+      <div class="container">
+        <div class="clipped-host">
+          <div class="inside">I'm wide but my parent has overflow:hidden — I should NOT be reported.</div>
+        </div>
+      </div>
+    </section>
+  </body>
+</html>
