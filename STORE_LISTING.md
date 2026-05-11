@@ -138,7 +138,7 @@ All in [`store-assets/`](store-assets/):
 
 | File | Dimensions | Aspect | CWS field |
 | --- | --- | --- | --- |
-| `store-assets/screenshot-1.png` | 1280×800 | 1.60 | **Screenshot** — already sized to CWS spec. |
+| `store-assets/screenshot-1.jpg` | 1280×800 | 1.60 | **Screenshot** — already sized to CWS spec. |
 | `store-assets/promo-tile.png` | 1586×992 | 1.60 | **Small promo tile** (target 440×280, aspect 1.57 — CWS will downscale). |
 | `store-assets/marquee.png` | 1983×793 | 2.50 | **Marquee promo tile** (target 1400×560, aspect 2.50 — exact match). |
 | `store-assets/icon-source.png` | 1254×1254 | 1.00 | Source for the `icons/icon-*.png` files. Keep for re-rendering future variants. |
@@ -154,7 +154,7 @@ sips -z 560 1400 store-assets/marquee.png    --out marquee-1400x560.png
 
 ## Screenshots checklist
 
-CWS requires at least 1 screenshot at **1280×800** or **640×400** (PNG/JPG). [`store-assets/screenshot-1.png`](store-assets/screenshot-1.png) is pre-sized to 1280×800 and ready to upload. For additional screenshots showing more interactions, capture:
+CWS requires at least 1 screenshot at **1280×800** or **640×400** (PNG/JPG). [`store-assets/screenshot-1.jpg`](store-assets/screenshot-1.jpg) is pre-sized to 1280×800 and ready to upload. For additional screenshots showing more interactions, capture:
 
 1. **Delete + Restore in action** — capture before/after deleting a culprit so the page reflows.
 2. **Hover-highlight on the page** — split-pane showing the red overlay tracking a culprit.
