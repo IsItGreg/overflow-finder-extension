@@ -38,7 +38,11 @@ PER-CULPRIT ACTIONS
 - Scroll to: smoothly scrolls the page so the element is centered, with a
   red highlight box that tracks it during the scroll.
 - Inspect: selects the element in the Elements panel.
-- Hovering a result row paints the highlight on the page.
+- Delete: removes the element from the DOM so you can see the page reflow
+  without it. Click again on the same card to restore the element to its
+  original position. A toolbar "Restore deleted" link undoes the whole
+  batch at once.
+- Hovering a result card paints the highlight on the page.
 
 HOW IT WORKS
 
