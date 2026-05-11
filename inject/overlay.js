@@ -60,4 +60,45 @@
     const node = document.getElementById(ID);
     if (node) node.remove();
   };
+
+  NS._deleted = NS._deleted || new Map();
+
+  NS.toggleDelete = function (i) {
+    const r = NS.lastResults && NS.lastResults[i];
+    if (!r || !r.el) return { ok: false };
+    const el = r.el;
+    if (NS._deleted.has(el)) {
+      const slot = NS._deleted.get(el);
+      if (!slot.parent || !slot.parent.isConnected) {
+        NS._deleted.delete(el);
+        return { ok: false, reason: "parent gone" };
+      }
+      const ref = slot.nextSibling && slot.nextSibling.isConnected ? slot.nextSibling : null;
+      slot.parent.insertBefore(el, ref);
+      NS._deleted.delete(el);
+      return { ok: true, deleted: false };
+    }
+    if (!el.isConnected) return { ok: false };
+    NS._deleted.set(el, { parent: el.parentNode, nextSibling: el.nextSibling });
+    el.remove();
+    NS.clearHighlight();
+    return { ok: true, deleted: true };
+  };
+
+  NS.restoreAllDeleted = function () {
+    let restored = 0;
+    NS._deleted.forEach((slot, el) => {
+      if (slot.parent && slot.parent.isConnected) {
+        const ref = slot.nextSibling && slot.nextSibling.isConnected ? slot.nextSibling : null;
+        slot.parent.insertBefore(el, ref);
+        restored++;
+      }
+    });
+    NS._deleted.clear();
+    return { restored };
+  };
+
+  NS.deletedCount = function () {
+    return NS._deleted ? NS._deleted.size : 0;
+  };
 })();

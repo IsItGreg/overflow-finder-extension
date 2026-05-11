@@ -98,7 +98,13 @@ function buildActions(index) {
   inspectBtn.dataset.index = String(index);
   inspectBtn.textContent = "Inspect";
   inspectBtn.title = "Select this element in the Elements panel";
-  actions.append(scrollBtn, inspectBtn);
+  const deleteBtn = document.createElement("button");
+  deleteBtn.className = "action-btn action-toggle";
+  deleteBtn.dataset.action = "toggleDelete";
+  deleteBtn.dataset.index = String(index);
+  deleteBtn.textContent = "Delete";
+  deleteBtn.title = "Remove this element from the DOM (you can restore it after)";
+  actions.append(scrollBtn, inspectBtn, deleteBtn);
   return actions;
 }
 
@@ -152,6 +158,7 @@ async function scan() {
     lastViewport = result.viewport;
     renderViewport(lastViewport);
     renderCards(result.culprits || []);
+    updateRestoreAllVisibility();
     const n = (result.culprits || []).length;
     setStatus(n === 0 ? "Done — no overflow." : `Found ${n} culprit${n === 1 ? "" : "s"}.`);
   } catch (err) {
@@ -180,6 +187,52 @@ function doScrollTo(i) {
   });
 }
 
+function applyDeletedState(card, deleted) {
+  card.classList.toggle("card-deleted", deleted);
+  const btn = card.querySelector('button.action-toggle');
+  if (btn) btn.textContent = deleted ? "Restore" : "Delete";
+  updateRestoreAllVisibility();
+}
+
+function doToggleDelete(card, i) {
+  evalInPage(`window.__overflowFinder.toggleDelete(${i})`)
+    .then((res) => {
+      if (!res || !res.ok) {
+        const why = res && res.reason ? ` (${res.reason})` : "";
+        setStatus("Could not toggle — element may have been removed from the DOM" + why + ".", true);
+        return;
+      }
+      applyDeletedState(card, !!res.deleted);
+    })
+    .catch((err) => {
+      setStatus("Could not toggle: " + err.message, true);
+    });
+}
+
+function doRestoreAllDeleted() {
+  evalInPage(`window.__overflowFinder.restoreAllDeleted()`)
+    .then((res) => {
+      const n = (res && res.restored) || 0;
+      resultsEl.querySelectorAll(".card.card-deleted").forEach((card) => applyDeletedState(card, false));
+      setStatus(n === 0 ? "Nothing was deleted." : `Restored ${n} deleted element${n === 1 ? "" : "s"}.`);
+      updateRestoreAllVisibility();
+    })
+    .catch((err) => {
+      setStatus("Could not restore: " + err.message, true);
+    });
+}
+
+function updateRestoreAllVisibility() {
+  const link = document.getElementById("restore-all");
+  if (!link) return;
+  evalInPage(`window.__overflowFinder ? window.__overflowFinder.deletedCount() : 0`)
+    .then((count) => {
+      link.classList.toggle("hidden", !count);
+      if (count) link.textContent = `Restore ${count} deleted ↺`;
+    })
+    .catch(() => {});
+}
+
 function bindCardEvents() {
   resultsEl.addEventListener("mouseover", (e) => {
     const card = e.target.closest(".card");
@@ -194,8 +247,10 @@ function bindCardEvents() {
     const btn = e.target.closest("button.action-btn");
     if (btn) {
       const i = Number(btn.dataset.index);
+      const card = btn.closest(".card");
       if (btn.dataset.action === "scroll") doScrollTo(i);
       else if (btn.dataset.action === "inspect") doInspect(i);
+      else if (btn.dataset.action === "toggleDelete") doToggleDelete(card, i);
       return;
     }
     const card = e.target.closest(".card");
@@ -213,6 +268,11 @@ fixturesLink.href = fixturesUrl;
 fixturesLink.addEventListener("click", (e) => {
   e.preventDefault();
   chrome.tabs.create({ url: fixturesUrl });
+});
+
+document.getElementById("restore-all").addEventListener("click", (e) => {
+  e.preventDefault();
+  doRestoreAllDeleted();
 });
 
 chrome.devtools.network.onNavigated.addListener(() => {

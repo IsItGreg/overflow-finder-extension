@@ -194,3 +194,24 @@ button.primary:disabled { opacity: 0.6; cursor: progress; }
 }
 .action-btn:hover { background: var(--bg); border-color: var(--accent); }
 .action-btn:active { filter: brightness(0.9); }
+
+.card.card-deleted {
+  opacity: 0.55;
+  border-style: dashed;
+  border-left-color: var(--fg-dim);
+}
+.card.card-deleted:hover {
+  opacity: 0.8;
+  border-left-color: var(--fg-dim);
+}
+.card.card-deleted .card-element {
+  text-decoration: line-through;
+}
+.card.card-deleted .overflow-px {
+  color: var(--fg-dim);
+  text-decoration: line-through;
+}
+.card.card-deleted .action-btn.action-toggle {
+  color: var(--warn);
+  border-color: var(--warn);
+}
