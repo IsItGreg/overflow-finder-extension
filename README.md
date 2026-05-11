@@ -1,8 +1,12 @@
 # Overflow Finder
 
+<p align="center">
+  <img src="store-assets/promo-tile.png" alt="Overflow Finder — Find what's breaking your layout. Scan a page, pinpoint the leaf elements causing overflow, see the likely cause from computed style, and jump straight to them in the Elements panel.">
+</p>
+
 A Chrome DevTools extension that finds the elements causing horizontal (or vertical) overflow on a page — without you deleting nodes one by one in the Elements panel to bisect.
 
-Adds an **Overflow Finder** tab to DevTools. Click **Scan** and you get a ranked list of culprits with the likely cause for each (`width: 1400px`, `white-space: nowrap`, `translateX(600px)`, …). Hover a row to highlight the element on the page; click to select it in the Elements panel.
+Adds an **Overflow Finder** tab to DevTools. Click **Scan** and you get a ranked list of culprits with the likely cause for each (`width: 1400px`, `white-space: nowrap`, `translateX(600px)`, …). Hover a card to highlight the element on the page; click to select it in the Elements panel; click **Delete** on a card to remove the element from the DOM (you can restore it after).
 
 ## Install (unpacked)
 
@@ -20,9 +24,13 @@ To verify the install works, click the **Test page ↗** link in the top-right o
 
 ## How it works
 
+<p align="center">
+  <img src="store-assets/marquee.png" alt="Overflow Finder hero — Scan page overflow, find the real culprit, jump to inspect.">
+</p>
+
 The panel injects a small script into the inspected page via `chrome.devtools.inspectedWindow.eval`. The script walks the DOM (descending into open shadow roots), collects every element whose bounding box passes the viewport edge, drops anything contained by an `overflow: hidden|auto|scroll|clip` ancestor that's itself within the viewport, and then keeps only "leaf" culprits — if a candidate has a culprit descendant, the descendant is the real source. Each remaining culprit is annotated with a likely cause guessed from computed style.
 
-Element references stay in the page (`window.__overflowFinder.lastResults`); only serializable metadata crosses back to the panel. Selecting an element calls `inspect()` from inside the page eval so the Elements panel jumps to it.
+Element references stay in the page (`window.__overflowFinder.lastResults`); only serializable metadata crosses back to the panel. Selecting an element calls `inspect()` from inside the page eval so the Elements panel jumps to it. Deleting a card stashes the element's parent and next-sibling so it can be reinserted at its original position.
 
 ## Limitations / not in MVP
 
