@@ -128,12 +128,29 @@ https://github.com/IsItGreg/overflow-finder-extension#privacy
 
 ---
 
+## Listing assets
+
+All in [`store-assets/`](store-assets/):
+
+| File | Dimensions | Aspect | CWS field |
+| --- | --- | --- | --- |
+| `store-assets/promo-tile.png` | 1586×992 | 1.60 | **Small promo tile** (target 440×280, aspect 1.57 — CWS will downscale). Also viable as a **Screenshot** (target 1280×800, aspect 1.60 — exact match). |
+| `store-assets/marquee.png` | 1983×793 | 2.50 | **Marquee promo tile** (target 1400×560, aspect 2.50 — exact match). |
+| `store-assets/icon-source.png` | 1254×1254 | 1.00 | Source for the `icons/icon-*.png` files. Keep for re-rendering future variants. |
+
+CWS will accept the originals and downscale them. If you need exact-sized uploads, run:
+
+```bash
+sips -z 280 440 store-assets/promo-tile.png --out promo-tile-440x280.png
+sips -z 560 1400 store-assets/marquee.png    --out marquee-1400x560.png
+```
+
+(`sips -z` takes height then width, in that order.)
+
 ## Screenshots checklist
 
-CWS requires at least 1 screenshot at **1280×800** or **640×400** (PNG/JPG). Suggestions, in priority order:
+CWS requires at least 1 screenshot at **1280×800** or **640×400** (PNG/JPG). The `promo-tile.png` works as a screenshot in a pinch. For additional screenshots showing real interactions, capture:
 
-1. **The DevTools panel showing a populated culprit list** — open the bundled `test/fixtures.html`, narrow the window to ~375px, click Scan, capture DevTools open with multiple cards visible.
-2. **Hover-highlight in action** — same panel, with a red highlight box overlaid on a culprit element on the page (split-pane capture).
-3. **Scroll-to follow** — capture mid-scroll showing the highlight tracking the element.
-
-A single good screenshot of #1 is enough to submit.
+1. **A populated culprit list** — open the bundled `test/fixtures.html`, narrow the window to ~375px, click Scan, capture DevTools open with multiple cards visible.
+2. **Delete + Restore in action** — capture before/after deleting a culprit so the page reflows.
+3. **Hover-highlight on the page** — split-pane showing the red overlay tracking a culprit.
