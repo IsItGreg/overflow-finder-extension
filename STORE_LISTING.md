@@ -136,25 +136,25 @@ https://github.com/IsItGreg/overflow-finder-extension#privacy
 
 All in [`store-assets/`](store-assets/):
 
-| File | Dimensions | Aspect | CWS field |
+All three CWS upload files are pre-sized to exact spec — drop them straight into the dashboard:
+
+| File | Dimensions | Format | CWS field |
 | --- | --- | --- | --- |
-| `store-assets/screenshot-1.jpg` | 1280×800 | 1.60 | **Screenshot** — already sized to CWS spec. |
-| `store-assets/promo-tile.png` | 1586×992 | 1.60 | **Small promo tile** (target 440×280, aspect 1.57 — CWS will downscale). |
-| `store-assets/marquee.png` | 1983×793 | 2.50 | **Marquee promo tile** (target 1400×560, aspect 2.50 — exact match). |
-| `store-assets/icon-source.png` | 1254×1254 | 1.00 | Source for the `icons/icon-*.png` files. Keep for re-rendering future variants. |
+| `store-assets/screenshot-1.jpg` | 1280×800 | JPEG q90 | **Screenshot** |
+| `store-assets/promo-tile.jpg` | 440×280 | JPEG q90 | **Small promo tile** |
+| `store-assets/marquee.jpg` | 1400×560 | JPEG q90 | **Marquee promo tile** |
 
-CWS will accept the originals and downscale them. If you need exact-sized uploads, run:
+High-resolution sources kept for the README and for future re-renders:
 
-```bash
-sips -z 280 440 store-assets/promo-tile.png --out promo-tile-440x280.png
-sips -z 560 1400 store-assets/marquee.png    --out marquee-1400x560.png
-```
-
-(`sips -z` takes height then width, in that order.)
+| File | Dimensions | Use |
+| --- | --- | --- |
+| `store-assets/promo-tile-source.png` | 1586×992 | README hero |
+| `store-assets/marquee-source.png` | 1983×793 | README inline |
+| `store-assets/icon-source.png` | 1254×1254 | Source for `icons/icon-*.png` |
 
 ## Screenshots checklist
 
-CWS requires at least 1 screenshot at **1280×800** or **640×400** (PNG/JPG). [`store-assets/screenshot-1.jpg`](store-assets/screenshot-1.jpg) is pre-sized to 1280×800 and ready to upload. For additional screenshots showing more interactions, capture:
+CWS requires at least 1 screenshot. We have one. For additional screenshots showing more interactions, capture:
 
 1. **Delete + Restore in action** — capture before/after deleting a culprit so the page reflows.
 2. **Hover-highlight on the page** — split-pane showing the red overlay tracking a culprit.

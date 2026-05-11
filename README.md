@@ -1,7 +1,7 @@
 # Overflow Finder
 
 <p align="center">
-  <img src="store-assets/promo-tile.png" alt="Overflow Finder — Find what's breaking your layout. Scan a page, pinpoint the leaf elements causing overflow, see the likely cause from computed style, and jump straight to them in the Elements panel.">
+  <img src="store-assets/promo-tile-source.png" alt="Overflow Finder — Find what's breaking your layout. Scan a page, pinpoint the leaf elements causing overflow, see the likely cause from computed style, and jump straight to them in the Elements panel.">
 </p>
 
 A Chrome DevTools extension that finds the elements causing horizontal (or vertical) overflow on a page — without you deleting nodes one by one in the Elements panel to bisect.
@@ -25,7 +25,7 @@ To verify the install works, click the **Test page ↗** link in the top-right o
 ## How it works
 
 <p align="center">
-  <img src="store-assets/marquee.png" alt="Overflow Finder hero — Scan page overflow, find the real culprit, jump to inspect.">
+  <img src="store-assets/marquee-source.png" alt="Overflow Finder hero — Scan page overflow, find the real culprit, jump to inspect.">
 </p>
 
 The panel injects a small script into the inspected page via `chrome.devtools.inspectedWindow.eval`. The script walks the DOM (descending into open shadow roots), collects every element whose bounding box passes the viewport edge, drops anything contained by an `overflow: hidden|auto|scroll|clip` ancestor that's itself within the viewport, and then keeps only "leaf" culprits — if a candidate has a culprit descendant, the descendant is the real source. Each remaining culprit is annotated with a likely cause guessed from computed style.
