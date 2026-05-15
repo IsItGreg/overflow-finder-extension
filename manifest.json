@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Overflow Finder",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Find which DOM elements are causing horizontal or vertical overflow. Adds an Overflow Finder tab to Chrome DevTools.",
   "minimum_chrome_version": "100",
   "devtools_page": "devtools.html",
