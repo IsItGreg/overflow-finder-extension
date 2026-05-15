@@ -147,6 +147,15 @@ button.primary:disabled { opacity: 0.6; cursor: progress; }
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
+.kind-tag {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: var(--bg);
+  color: var(--warn);
+  border: 1px solid var(--warn);
+  font-size: 11px;
+}
 
 .card-element {
   font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;

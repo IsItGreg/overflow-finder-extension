@@ -132,6 +132,13 @@ function renderCards(culprits) {
     overflow.className = "overflow-px";
     overflow.textContent = `+${c.overflowPx}px overflow`;
     header.append(axisTag, overflow);
+    if (c.kind === "scroll") {
+      const kindTag = document.createElement("span");
+      kindTag.className = "kind-tag";
+      kindTag.textContent = "scroll container";
+      kindTag.title = "This element has overflow:auto or overflow:scroll, and its content is wider than its visible area — produces an internal scrollbar.";
+      header.appendChild(kindTag);
+    }
 
     card.append(header, buildElementMarkup(c), buildMeta(c), buildActions(c.index));
     resultsEl.appendChild(card);

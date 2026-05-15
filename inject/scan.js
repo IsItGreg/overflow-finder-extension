@@ -30,9 +30,17 @@
     return false;
   }
 
-  function diagnose(el, axis) {
+  function diagnose(el, axis, kind) {
     const cs = getComputedStyle(el);
     const reasons = [];
+
+    if (kind === "scroll") {
+      const ov = axis === "x" ? cs.overflowX : cs.overflowY;
+      const scrollSize = axis === "x" ? el.scrollWidth : el.scrollHeight;
+      const clientSize = axis === "x" ? el.clientWidth : el.clientHeight;
+      reasons.push(`scroll container (overflow-${axis}: ${ov}): content ${scrollSize}px > visible ${clientSize}px`);
+      return reasons.join("; ");
+    }
 
     if (axis === "x") {
       if (cs.width.endsWith("px")) {
@@ -140,6 +148,7 @@
     const docEl = document.documentElement;
     const viewport = axis === "x" ? docEl.clientWidth : docEl.clientHeight;
 
+    // Pass 1: elements whose bounding rect extends past the viewport.
     const candidates = [];
     walk(document.body, (el) => {
       const r = el.getBoundingClientRect();
@@ -147,11 +156,26 @@
       const far = axis === "x" ? r.right : r.bottom;
       const near = axis === "x" ? r.left : r.top;
       if (far > viewport + 1 || near < -1) {
-        candidates.push({ el, overflow: Math.max(far - viewport, -near) });
+        candidates.push({ el, overflow: Math.max(far - viewport, -near), kind: "viewport" });
       }
     });
-
     const real = candidates.filter(({ el }) => !clippedByAncestor(el, axis, viewport));
+
+    // Pass 2: scroll containers with internal overflow — elements that have
+    // overflow-x/y: auto|scroll AND scroll{Width,Height} > client{Width,Height}.
+    // These produce visible scrollbars inside the page even when nothing extends
+    // past the viewport, and are a common source of "I see a scrollbar I didn't want."
+    const realSet = new Set(real.map((c) => c.el));
+    walk(document.body, (el) => {
+      if (realSet.has(el)) return;
+      const cs = getComputedStyle(el);
+      const ov = axis === "x" ? cs.overflowX : cs.overflowY;
+      if (ov !== "auto" && ov !== "scroll") return;
+      const scrollSize = axis === "x" ? el.scrollWidth : el.scrollHeight;
+      const clientSize = axis === "x" ? el.clientWidth : el.clientHeight;
+      if (scrollSize <= clientSize + 1) return;
+      real.push({ el, overflow: scrollSize - clientSize, kind: "scroll" });
+    });
 
     const set = new Set(real.map((c) => c.el));
     const leaves = real.filter(({ el }) => {
@@ -187,7 +211,8 @@
           id: c.el.id || null,
           classes: c.el.classList ? Array.from(c.el.classList).slice(0, 5) : [],
           rect: { left: Math.round(r.left), top: Math.round(r.top), width: Math.round(r.width), height: Math.round(r.height) },
-          reason: diagnose(c.el, c.axis),
+          reason: diagnose(c.el, c.axis, c.kind),
+          kind: c.kind || "viewport",
         };
       }),
     };
