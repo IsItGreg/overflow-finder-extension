@@ -208,27 +208,68 @@
       scrollContainers.push(entry);
     });
 
-    // Pass 3: drill INTO each scroll container — find descendants where the
-    // *intrinsic* layout is too wide (their own scrollWidth > clientWidth).
-    // These are the actual rows/grids/flex boxes causing the container to scroll;
-    // the leaf filter will then prefer them over the container itself.
+    // Pass 3: drill INTO each scroll container. Two kinds of leaves matter:
+    //   (a) descendants where the *intrinsic* layout is too wide (scrollWidth > clientWidth)
+    //       — grids/flex boxes that don't fit their own track sums.
+    //   (b) descendants whose bounding-box right edge sits past the scroll container's
+    //       right edge — they're the physical elements producing the visible scrollbar
+    //       on the container, useful when (a) finds nothing (e.g. a grid whose tracks
+    //       are fine on their own but whose explicit width exceeds the parent's
+    //       content area).
+    // We deliberately skip subtrees rooted at OTHER scroll containers so each scroller's
+    // leaves are attributed to it — without this, an outer scroller (e.g. <main>) would
+    // claim every token inside a nested ticker, drowning out the real cause.
+    const scrollerEls = new Set(scrollContainers.map((s) => s.el));
+    function walkSkippingNested(root, fn) {
+      const it = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT, {
+        acceptNode(node) {
+          return node !== root && scrollerEls.has(node) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
+        },
+      });
+      let n;
+      while ((n = it.nextNode())) {
+        fn(n);
+        if (n.shadowRoot) walkSkippingNested(n.shadowRoot, fn);
+      }
+    }
     for (const sc of scrollContainers) {
-      walk(sc.el, (el) => {
+      const scRect = sc.el.getBoundingClientRect();
+      const scFar = axis === "x" ? scRect.right : scRect.bottom;
+      walkSkippingNested(sc.el, (el) => {
         if (el === sc.el) return;
         if (real.some((c) => c.el === el)) return;
         const scrollSize = axis === "x" ? el.scrollWidth : el.scrollHeight;
         const clientSize = axis === "x" ? el.clientWidth : el.clientHeight;
-        if (scrollSize <= clientSize + 1) return;
-        real.push({ el, overflow: scrollSize - clientSize, kind: "scroll-content" });
+        if (scrollSize > clientSize + 1) {
+          real.push({ el, overflow: scrollSize - clientSize, kind: "scroll-content" });
+          return;
+        }
+        const r = el.getBoundingClientRect();
+        const far = axis === "x" ? r.right : r.bottom;
+        if (far > scFar + 1) {
+          real.push({ el, overflow: far - scFar, kind: "scroll-content" });
+        }
       });
     }
 
+    // Leaf filter — but scroll-kind containers are always kept. They describe a
+    // separate concern from their inner scroll-content leaves: "this is where
+    // the scrollbar appears." Without this exemption, page-level overflows
+    // (e.g. main with scrollWidth > clientWidth) get filtered out as soon as a
+    // nested scroller (token ticker, tabs row) is also found.
     const set = new Set(real.map((c) => c.el));
-    const leaves = real.filter(({ el }) => {
+    const leaves = real.filter(({ el, kind }) => {
+      if (kind === "scroll") return true;
       const it = document.createTreeWalker(el, NodeFilter.SHOW_ELEMENT);
       let n;
       while ((n = it.nextNode())) {
-        if (n !== el && set.has(n)) return false;
+        if (n === el) continue;
+        if (!set.has(n)) continue;
+        const child = real.find((c) => c.el === n);
+        // Don't let scroll-kind descendants filter viewport / scroll-content
+        // candidates either — they're parallel concerns.
+        if (child && child.kind === "scroll") continue;
+        return false;
       }
       return true;
     });
@@ -239,7 +280,25 @@
   NS.scan = function (axes) {
     const all = [];
     for (const a of axes) all.push(...scanAxis(a));
-    all.sort((x, y) => y.overflow - x.overflow);
+    // Page-level overflow first (viewport > scroll containers > drilled scroll content).
+    // Within scroll-kind, outer containers (those enclosing other scrollers) come first
+    // so the highest-impact / page-level scroll surfaces above any nested intentional
+    // scrollers below it. Within all other ties, sort by overflow descending.
+    const scrollEls = all.filter((c) => c.kind === "scroll").map((c) => c.el);
+    for (const c of all) {
+      if (c.kind === "scroll") {
+        c._nest = scrollEls.filter((o) => o !== c.el && c.el.contains(o)).length;
+      }
+    }
+    const kindRank = { viewport: 0, scroll: 1, "scroll-content": 2 };
+    all.sort((x, y) => {
+      const dk = (kindRank[x.kind] ?? 99) - (kindRank[y.kind] ?? 99);
+      if (dk !== 0) return dk;
+      if (x.kind === "scroll" && (y._nest || 0) !== (x._nest || 0)) {
+        return (y._nest || 0) - (x._nest || 0);
+      }
+      return y.overflow - x.overflow;
+    });
 
     NS.lastResults = all.map((c, i) => ({ ...c, index: i }));
 
