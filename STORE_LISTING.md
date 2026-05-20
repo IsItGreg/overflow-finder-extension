@@ -4,6 +4,16 @@ Plain-text drafts ready to paste into the [Developer Dashboard](https://chrome.g
 
 ---
 
+## Extension name (≤75 chars)
+
+```
+Overflow Finder - CSS overflow debugger for DevTools
+```
+
+The hyphenated tail is for CWS search ranking — picks up the queries "CSS", "overflow", "debugger", and "DevTools" without making the name feel keyword-stuffed.
+
+---
+
 ## Short description (≤132 chars)
 
 ```
