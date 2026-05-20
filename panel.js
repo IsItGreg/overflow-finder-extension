@@ -132,11 +132,16 @@ function renderCards(culprits) {
     overflow.className = "overflow-px";
     overflow.textContent = `+${c.overflowPx}px overflow`;
     header.append(axisTag, overflow);
-    if (c.kind === "scroll") {
+    if (c.kind === "scroll" || c.kind === "scroll-content") {
       const kindTag = document.createElement("span");
       kindTag.className = "kind-tag";
-      kindTag.textContent = "scroll container";
-      kindTag.title = "This element has overflow:auto or overflow:scroll, and its content is wider than its visible area — produces an internal scrollbar.";
+      if (c.kind === "scroll") {
+        kindTag.textContent = "scroll container";
+        kindTag.title = "This element has overflow:auto or overflow:scroll, and its content is wider than its visible area — produces an internal scrollbar.";
+      } else {
+        kindTag.textContent = "intrinsic width";
+        kindTag.title = "This element sits inside a scroll container and its intrinsic layout (grid template, fixed widths, flex content) is wider than the space it has — it's what's actually forcing the container to scroll.";
+      }
       header.appendChild(kindTag);
     }
 

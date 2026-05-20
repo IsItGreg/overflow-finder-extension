@@ -34,11 +34,39 @@
     const cs = getComputedStyle(el);
     const reasons = [];
 
-    if (kind === "scroll") {
-      const ov = axis === "x" ? cs.overflowX : cs.overflowY;
+    if (kind === "scroll" || kind === "scroll-content") {
       const scrollSize = axis === "x" ? el.scrollWidth : el.scrollHeight;
       const clientSize = axis === "x" ? el.clientWidth : el.clientHeight;
-      reasons.push(`scroll container (overflow-${axis}: ${ov}): content ${scrollSize}px > visible ${clientSize}px`);
+      if (kind === "scroll") {
+        const ov = axis === "x" ? cs.overflowX : cs.overflowY;
+        reasons.push(`scroll container (overflow-${axis}: ${ov}): content ${scrollSize}px > visible ${clientSize}px`);
+      } else {
+        reasons.push(`intrinsic content ${scrollSize}px > available ${clientSize}px`);
+      }
+
+      // For grid containers, show the template tracks and their sum on the relevant axis
+      if (cs.display === "grid" || cs.display === "inline-grid") {
+        const tracks = axis === "x" ? cs.gridTemplateColumns : cs.gridTemplateRows;
+        if (tracks && tracks !== "none") {
+          const px = tracks.match(/[\d.]+px/g);
+          if (px && px.length) {
+            const sum = px.reduce((a, p) => a + parseFloat(p), 0);
+            const gap = parseFloat(axis === "x" ? cs.columnGap : cs.rowGap) || 0;
+            const totalGap = gap * (px.length - 1);
+            reasons.push(`${axis === "x" ? "columns" : "rows"}: ${tracks} (sum ${Math.round(sum + totalGap)}px${totalGap ? ` incl. ${gap}px gaps` : ""})`);
+          } else {
+            reasons.push(`${axis === "x" ? "grid-template-columns" : "grid-template-rows"}: ${tracks}`);
+          }
+        }
+      }
+
+      // For flex containers, surface that flex shrink may be off
+      if (cs.display === "flex" || cs.display === "inline-flex") {
+        const dir = cs.flexDirection;
+        const isMainAxis = (axis === "x" && (dir === "row" || dir === "row-reverse")) || (axis === "y" && (dir === "column" || dir === "column-reverse"));
+        if (isMainAxis) reasons.push(`flex-direction: ${dir}`);
+      }
+
       return reasons.join("; ");
     }
 
@@ -165,6 +193,7 @@
     // overflow-x/y: auto|scroll AND scroll{Width,Height} > client{Width,Height}.
     // These produce visible scrollbars inside the page even when nothing extends
     // past the viewport, and are a common source of "I see a scrollbar I didn't want."
+    const scrollContainers = [];
     const realSet = new Set(real.map((c) => c.el));
     walk(document.body, (el) => {
       if (realSet.has(el)) return;
@@ -174,8 +203,25 @@
       const scrollSize = axis === "x" ? el.scrollWidth : el.scrollHeight;
       const clientSize = axis === "x" ? el.clientWidth : el.clientHeight;
       if (scrollSize <= clientSize + 1) return;
-      real.push({ el, overflow: scrollSize - clientSize, kind: "scroll" });
+      const entry = { el, overflow: scrollSize - clientSize, kind: "scroll" };
+      real.push(entry);
+      scrollContainers.push(entry);
     });
+
+    // Pass 3: drill INTO each scroll container — find descendants where the
+    // *intrinsic* layout is too wide (their own scrollWidth > clientWidth).
+    // These are the actual rows/grids/flex boxes causing the container to scroll;
+    // the leaf filter will then prefer them over the container itself.
+    for (const sc of scrollContainers) {
+      walk(sc.el, (el) => {
+        if (el === sc.el) return;
+        if (real.some((c) => c.el === el)) return;
+        const scrollSize = axis === "x" ? el.scrollWidth : el.scrollHeight;
+        const clientSize = axis === "x" ? el.clientWidth : el.clientHeight;
+        if (scrollSize <= clientSize + 1) return;
+        real.push({ el, overflow: scrollSize - clientSize, kind: "scroll-content" });
+      });
+    }
 
     const set = new Set(real.map((c) => c.el));
     const leaves = real.filter(({ el }) => {
