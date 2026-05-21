@@ -161,6 +161,51 @@ button.primary:disabled { opacity: 0.6; cursor: progress; }
   border-color: var(--danger);
 }
 
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  font-size: 11px;
+}
+.filter-label {
+  color: var(--fg-dim);
+  margin-right: 4px;
+}
+.filter-chip {
+  background: transparent;
+  color: var(--fg-dim);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1px 8px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  line-height: 1.4;
+}
+.filter-chip:hover { color: var(--fg); border-color: var(--accent); }
+.filter-chip.active {
+  background: var(--accent);
+  color: var(--bg);
+  border-color: var(--accent);
+}
+.filter-chip.active .count { color: var(--bg); }
+.filter-chip-clip.active {
+  background: var(--danger);
+  border-color: var(--danger);
+}
+.filter-chip .count {
+  opacity: 0.75;
+  margin-left: 4px;
+  font-variant-numeric: tabular-nums;
+}
+.filter-chip.empty {
+  opacity: 0.45;
+}
+
 .card-element {
   font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   word-break: break-all;

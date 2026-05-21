@@ -5,10 +5,13 @@ const status = $("#status");
 const viewportEl = $("#viewport");
 const emptyEl = $("#empty");
 const resultsEl = $("#results");
+const filterBar = $("#filter-bar");
 
 let scanScript = null;
 let overlayScript = null;
 let lastViewport = null;
+let lastCulprits = [];
+let activeFilter = "all";
 
 async function loadScripts() {
   if (scanScript && overlayScript) return;
@@ -108,17 +111,38 @@ function buildActions(index) {
   return actions;
 }
 
+function updateFilterBar(culprits) {
+  if (!culprits.length) {
+    filterBar.classList.add("hidden");
+    return;
+  }
+  filterBar.classList.remove("hidden");
+  const counts = { all: culprits.length, viewport: 0, clip: 0, scroll: 0, "scroll-content": 0 };
+  for (const c of culprits) counts[c.kind] = (counts[c.kind] || 0) + 1;
+  filterBar.querySelectorAll(".filter-chip").forEach((chip) => {
+    const kind = chip.dataset.kind;
+    const count = counts[kind] || 0;
+    chip.querySelector(".count").textContent = String(count);
+    chip.classList.toggle("active", kind === activeFilter);
+    chip.classList.toggle("empty", kind !== "all" && count === 0);
+  });
+}
+
 function renderCards(culprits) {
   resultsEl.innerHTML = "";
-  if (culprits.length === 0) {
+  const filtered = activeFilter === "all" ? culprits : culprits.filter((c) => c.kind === activeFilter);
+  if (filtered.length === 0) {
     resultsEl.classList.add("hidden");
     emptyEl.classList.remove("hidden");
+    emptyEl.textContent = culprits.length === 0
+      ? "No overflow detected on this page."
+      : `No ${activeFilter === "scroll-content" ? "intrinsic-width" : activeFilter} culprits.`;
     return;
   }
   emptyEl.classList.add("hidden");
   resultsEl.classList.remove("hidden");
 
-  for (const c of culprits) {
+  for (const c of filtered) {
     const card = document.createElement("div");
     card.className = "card";
     card.dataset.index = String(c.index);
@@ -171,10 +195,12 @@ async function scan() {
       throw new Error("Unexpected scan result");
     }
     lastViewport = result.viewport;
+    lastCulprits = result.culprits || [];
     renderViewport(lastViewport);
-    renderCards(result.culprits || []);
+    updateFilterBar(lastCulprits);
+    renderCards(lastCulprits);
     updateRestoreAllVisibility();
-    const n = (result.culprits || []).length;
+    const n = lastCulprits.length;
     setStatus(n === 0 ? "Done — no overflow." : `Found ${n} culprit${n === 1 ? "" : "s"}.`);
   } catch (err) {
     setStatus(err.message || String(err), true);
@@ -290,11 +316,21 @@ document.getElementById("restore-all").addEventListener("click", (e) => {
   doRestoreAllDeleted();
 });
 
+filterBar.addEventListener("click", (e) => {
+  const chip = e.target.closest(".filter-chip");
+  if (!chip) return;
+  activeFilter = chip.dataset.kind;
+  updateFilterBar(lastCulprits);
+  renderCards(lastCulprits);
+});
+
 chrome.devtools.network.onNavigated.addListener(() => {
   lastViewport = null;
+  lastCulprits = [];
   renderViewport(null);
   resultsEl.innerHTML = "";
   resultsEl.classList.add("hidden");
   emptyEl.classList.add("hidden");
+  filterBar.classList.add("hidden");
   setStatus("Page navigated — click Scan to re-run.");
 });
