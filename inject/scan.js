@@ -300,9 +300,20 @@
     // Leaf filter — scroll-kind and clip-kind candidates are always kept.
     // Each describes a distinct page-level concern (where the scrollbar appears,
     // where content is silently clipped) parallel to inner scroll-content leaves.
+    // Also exempt grid containers with explicit px/% tracks: when a grid template
+    // overshoots its container, the bug is the *template*, not whatever inner
+    // element happens to protrude. The grid wrapper is more actionable than
+    // any of its leaves.
+    function isGridWithExplicitTracks(el) {
+      const cs = getComputedStyle(el);
+      if (cs.display !== "grid" && cs.display !== "inline-grid") return false;
+      const tracks = (cs.gridTemplateColumns || "") + " " + (cs.gridTemplateRows || "");
+      return /\d+(\.\d+)?(px|%)/.test(tracks);
+    }
     const set = new Set(real.map((c) => c.el));
     const leaves = real.filter(({ el, kind }) => {
       if (kind === "scroll" || kind === "clip") return true;
+      if (kind === "scroll-content" && isGridWithExplicitTracks(el)) return true;
       const it = document.createTreeWalker(el, NodeFilter.SHOW_ELEMENT);
       let n;
       while ((n = it.nextNode())) {
