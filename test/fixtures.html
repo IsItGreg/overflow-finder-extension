@@ -83,7 +83,7 @@
         padding: 6px;
       }
 
-      /* 11. Innocent bystander: clipped by overflow:hidden so should NOT be reported */
+      /* 11. Horizontal clip: overflow:hidden host with explicit-width child poking past */
       .clipped-host {
         overflow: hidden;
         background: #ffffff;
@@ -91,6 +91,19 @@
         padding: 6px;
       }
       .clipped-host .inside { width: 1400px; height: 24px; background: #cfd8dc; }
+
+      /* 12. Vertical clip: fixed-height card silently cutting off content */
+      .case-card {
+        overflow: hidden;
+        height: 60px;
+        background: #fff;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 6px 8px;
+      }
+      .case-card .title { font-weight: 600; }
+      .case-card .meta  { color: #888; font-size: 12px; }
+      .case-card .body  { margin-top: 6px; line-height: 1.5; }
     </style>
   </head>
   <body>
@@ -171,11 +184,24 @@
     </section>
 
     <section>
-      <h2>11. Innocent bystander (should NOT appear in results)</h2>
+      <h2>11. Horizontal clip (overflow:hidden with wide child)</h2>
       <div class="container">
         <div class="clipped-host">
-          <div class="inside">I'm wide but my parent has overflow:hidden — I should NOT be reported.</div>
+          <div class="inside">I'm 1400px wide and my parent has overflow:hidden — content gets silently clipped on the X axis. Reported as <em>clipped content</em>, not as viewport overflow.</div>
         </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>12. Vertical clip (fixed-height card cutting off content)</h2>
+      <div class="container">
+        <article class="case-card">
+          <div class="title">Case #1024 — Sample case title</div>
+          <div class="meta">Edited 2 days ago · 4 entities · 3 contributors</div>
+          <div class="body">
+            The card has height: 60px and overflow: hidden, but the title + meta + this body paragraph need more vertical room. Everything from this line down is clipped silently — the user can't tell what's missing without inspecting. This is the real-world case-card pattern.
+          </div>
+        </article>
       </div>
     </section>
   </body>
