@@ -262,6 +262,24 @@
       });
     }
 
+    // Pass 4a: free-floating intrinsic overflow — grid containers whose layout
+    // requires more space than they have, even when no parent scroll container
+    // is overflowing. The content visually bleeds out (overflow:visible) so the
+    // user sees layout breakage without any scrollbar or clip indicator. Only
+    // grids with explicit px/% tracks qualify (those are unambiguous "layout
+    // doesn't fit" bugs) to avoid noise from incidental overflow.
+    walk(document.body, (el) => {
+      if (real.some((c) => c.el === el)) return;
+      const cs = getComputedStyle(el);
+      if (cs.display !== "grid" && cs.display !== "inline-grid") return;
+      const tracks = (cs.gridTemplateColumns || "") + " " + (cs.gridTemplateRows || "");
+      if (!/\d+(\.\d+)?(px|%)/.test(tracks)) return;
+      const scrollSize = axis === "x" ? el.scrollWidth : el.scrollHeight;
+      const clientSize = axis === "x" ? el.clientWidth : el.clientHeight;
+      if (scrollSize <= clientSize + 5) return;
+      real.push({ el, overflow: scrollSize - clientSize, kind: "scroll-content" });
+    });
+
     // Pass 4: clipped content — elements with overflow-{x,y}: hidden|clip whose
     // content is silently cut off. These are *invisible* bugs (the user can't
     // see what's missing without inspecting), so they're worth surfacing
