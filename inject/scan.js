@@ -34,6 +34,16 @@
     const cs = getComputedStyle(el);
     const reasons = [];
 
+    if (kind === "clip") {
+      const ss = axis === "x" ? el.scrollWidth : el.scrollHeight;
+      const cw = axis === "x" ? el.clientWidth : el.clientHeight;
+      const ov = axis === "x" ? cs.overflowX : cs.overflowY;
+      const dim = axis === "x" ? cs.width : cs.height;
+      reasons.push(`overflow-${axis}: ${ov} clipping ${ss - cw}px (content ${ss}px > visible ${cw}px)`);
+      reasons.push(`${axis === "x" ? "width" : "height"}: ${dim}`);
+      return reasons.join("; ");
+    }
+
     if (kind === "scroll" || kind === "scroll-content") {
       const scrollSize = axis === "x" ? el.scrollWidth : el.scrollHeight;
       const clientSize = axis === "x" ? el.clientWidth : el.clientHeight;
@@ -252,14 +262,47 @@
       });
     }
 
-    // Leaf filter — but scroll-kind containers are always kept. They describe a
-    // separate concern from their inner scroll-content leaves: "this is where
-    // the scrollbar appears." Without this exemption, page-level overflows
-    // (e.g. main with scrollWidth > clientWidth) get filtered out as soon as a
-    // nested scroller (token ticker, tabs row) is also found.
+    // Pass 4: clipped content — elements with overflow-{x,y}: hidden|clip whose
+    // content is silently cut off. These are *invisible* bugs (the user can't
+    // see what's missing without inspecting), so they're worth surfacing
+    // separately from scroll containers. Heuristic to keep noise down:
+    //   (a) overflow is hidden or clip on the axis
+    //   (b) scrollSize > clientSize by more than 5px (skip subpixel noise)
+    //   (c) element has an explicit dimension on the axis (width/height set —
+    //       not "auto" / min-content / max-content). Distinguishes
+    //       "I constrained this box" from incidental overflow on a default-
+    //       sized element.
+    //   (d) at least one Element child protrudes past the box on this axis —
+    //       skips pure text-overflow:ellipsis truncation (text node overflow
+    //       with no Element child poking out).
+    walk(document.body, (el) => {
+      if (real.some((c) => c.el === el)) return;
+      const cs = getComputedStyle(el);
+      const ov = axis === "x" ? cs.overflowX : cs.overflowY;
+      if (ov !== "hidden" && ov !== "clip") return;
+      const scrollSize = axis === "x" ? el.scrollWidth : el.scrollHeight;
+      const clientSize = axis === "x" ? el.clientWidth : el.clientHeight;
+      if (scrollSize <= clientSize + 5) return;
+      const dim = axis === "x" ? cs.width : cs.height;
+      if (!dim || dim === "auto" || dim === "min-content" || dim === "max-content" || dim === "fit-content") return;
+      const r = el.getBoundingClientRect();
+      const far = axis === "x" ? r.right : r.bottom;
+      let hasProtrudingChild = false;
+      for (const c of el.children) {
+        const cr = c.getBoundingClientRect();
+        const cf = axis === "x" ? cr.right : cr.bottom;
+        if (cf > far + 1) { hasProtrudingChild = true; break; }
+      }
+      if (!hasProtrudingChild) return;
+      real.push({ el, overflow: scrollSize - clientSize, kind: "clip" });
+    });
+
+    // Leaf filter — scroll-kind and clip-kind candidates are always kept.
+    // Each describes a distinct page-level concern (where the scrollbar appears,
+    // where content is silently clipped) parallel to inner scroll-content leaves.
     const set = new Set(real.map((c) => c.el));
     const leaves = real.filter(({ el, kind }) => {
-      if (kind === "scroll") return true;
+      if (kind === "scroll" || kind === "clip") return true;
       const it = document.createTreeWalker(el, NodeFilter.SHOW_ELEMENT);
       let n;
       while ((n = it.nextNode())) {
@@ -290,7 +333,10 @@
         c._nest = scrollEls.filter((o) => o !== c.el && c.el.contains(o)).length;
       }
     }
-    const kindRank = { viewport: 0, scroll: 1, "scroll-content": 2 };
+    // Sort priority: viewport overflow (page is too wide) and clip (content
+    // silently cut off) come first — these are usually unambiguous bugs.
+    // Scroll containers next (may be intentional). Drilled scroll-content last.
+    const kindRank = { viewport: 0, clip: 1, scroll: 2, "scroll-content": 3 };
     all.sort((x, y) => {
       const dk = (kindRank[x.kind] ?? 99) - (kindRank[y.kind] ?? 99);
       if (dk !== 0) return dk;
