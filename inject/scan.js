@@ -30,9 +30,20 @@
     return false;
   }
 
-  function diagnose(el, axis, kind) {
+  function diagnose(el, axis, kind, overflow) {
     const cs = getComputedStyle(el);
     const reasons = [];
+
+    // Branch (b) of Pass 3: element has no intrinsic overflow of its own, it
+    // just sits past its scrollable container's edge (off-screen content).
+    if (kind === "scroll-content" && overflow != null) {
+      const scrollSize = axis === "x" ? el.scrollWidth : el.scrollHeight;
+      const clientSize = axis === "x" ? el.clientWidth : el.clientHeight;
+      if (scrollSize <= clientSize + 1) {
+        const dim = axis === "x" ? cs.width : cs.height;
+        return `extends ${Math.round(overflow)}px past its scrollable container (off-screen content); ${axis === "x" ? "width" : "height"}: ${dim}`;
+      }
+    }
 
     if (kind === "clip") {
       const ss = axis === "x" ? el.scrollWidth : el.scrollHeight;
@@ -245,21 +256,35 @@
     for (const sc of scrollContainers) {
       const scRect = sc.el.getBoundingClientRect();
       const scFar = axis === "x" ? scRect.right : scRect.bottom;
+      // Branch (b) — descendants whose rect merely protrudes past the container
+      // edge (no intrinsic overflow of their own) are collapsed to the single
+      // FURTHEST one. In a horizontal scroller (token ticker, data row) every
+      // off-screen item protrudes; reporting them all is noise. The furthest
+      // element is the one that defines the scroll extent — the meaningful
+      // "what makes it scroll this far" answer.
+      let furthestEl = null;
+      let furthestFar = scFar;
       walkSkippingNested(sc.el, (el) => {
         if (el === sc.el) return;
         if (real.some((c) => c.el === el)) return;
         const scrollSize = axis === "x" ? el.scrollWidth : el.scrollHeight;
         const clientSize = axis === "x" ? el.clientWidth : el.clientHeight;
         if (scrollSize > clientSize + 1) {
+          // Branch (a) — element is intrinsically too wide. These are real
+          // distinct culprits (grids/flex boxes that don't fit); keep each.
           real.push({ el, overflow: scrollSize - clientSize, kind: "scroll-content" });
           return;
         }
         const r = el.getBoundingClientRect();
         const far = axis === "x" ? r.right : r.bottom;
-        if (far > scFar + 1) {
-          real.push({ el, overflow: far - scFar, kind: "scroll-content" });
+        if (far > furthestFar) {
+          furthestFar = far;
+          furthestEl = el;
         }
       });
+      if (furthestEl) {
+        real.push({ el: furthestEl, overflow: furthestFar - scFar, kind: "scroll-content", protrudesPast: true });
+      }
     }
 
     // Pass 4a: free-floating intrinsic overflow — grid containers whose layout
@@ -398,7 +423,7 @@
           id: c.el.id || null,
           classes: c.el.classList ? Array.from(c.el.classList).slice(0, 5) : [],
           rect: { left: Math.round(r.left), top: Math.round(r.top), width: Math.round(r.width), height: Math.round(r.height) },
-          reason: diagnose(c.el, c.axis, c.kind),
+          reason: diagnose(c.el, c.axis, c.kind, c.overflow),
           kind: c.kind || "viewport",
         };
       }),
