@@ -85,6 +85,35 @@
     return { ok: true, deleted: true };
   };
 
+  NS.toggleDeleteGroup = function (indices) {
+    const els = indices
+      .map((i) => NS.lastResults && NS.lastResults[i])
+      .filter((r) => r && r.el)
+      .map((r) => r.el);
+    const allDeleted = els.length > 0 && els.every((el) => NS._deleted.has(el));
+    let changed = 0;
+    if (allDeleted) {
+      for (const el of els) {
+        const slot = NS._deleted.get(el);
+        if (slot && slot.parent && slot.parent.isConnected) {
+          const ref = slot.nextSibling && slot.nextSibling.isConnected ? slot.nextSibling : null;
+          slot.parent.insertBefore(el, ref);
+        }
+        NS._deleted.delete(el);
+        changed++;
+      }
+      return { ok: true, deleted: false, count: changed };
+    }
+    for (const el of els) {
+      if (NS._deleted.has(el) || !el.isConnected) continue;
+      NS._deleted.set(el, { parent: el.parentNode, nextSibling: el.nextSibling });
+      el.remove();
+      changed++;
+    }
+    NS.clearHighlight();
+    return { ok: true, deleted: true, count: changed };
+  };
+
   NS.restoreAllDeleted = function () {
     let restored = 0;
     NS._deleted.forEach((slot, el) => {

@@ -12,6 +12,15 @@ let overlayScript = null;
 let lastViewport = null;
 let lastCulprits = [];
 let activeFilter = "all";
+let groupingEnabled = true;
+
+// Structural signature: culprits with the same kind, axis, tag and class list
+// are "basically the same" (e.g. every row of a list). Elements with an id are
+// unique, so each stays in its own group.
+function groupKey(c) {
+  if (c.id) return "id:" + c.index;
+  return [c.kind, c.axis, c.tagName, (c.classes || []).join(".")].join("|");
+}
 
 async function loadScripts() {
   if (scanScript && overlayScript) return;
@@ -63,7 +72,7 @@ function buildElementMarkup(c) {
   return wrap;
 }
 
-function buildMeta(c) {
+function buildMeta(c, members) {
   const meta = document.createElement("div");
   meta.className = "card-meta";
 
@@ -83,6 +92,22 @@ function buildMeta(c) {
   sizeVal.textContent = `${c.rect.width} × ${c.rect.height}px`;
 
   meta.append(reasonLbl, reasonVal, sizeLbl, sizeVal);
+
+  if (members && members.length > 1) {
+    const overflows = members.map((m) => m.overflowPx);
+    const min = Math.min(...overflows);
+    const max = Math.max(...overflows);
+    const matchLbl = document.createElement("span");
+    matchLbl.className = "meta-label";
+    matchLbl.textContent = "Matches:";
+    const matchVal = document.createElement("span");
+    matchVal.className = "meta-value";
+    matchVal.textContent =
+      `${members.length} similar elements` +
+      (min === max ? ` (each +${max}px)` : ` (+${min}–${max}px)`);
+    meta.append(matchLbl, matchVal);
+  }
+
   return meta;
 }
 
@@ -111,6 +136,126 @@ function buildActions(index) {
   return actions;
 }
 
+function buildGroupActions(repIndex, members) {
+  const actions = document.createElement("div");
+  actions.className = "card-actions";
+  const indices = members.map((m) => m.index).join(",");
+
+  const scrollBtn = document.createElement("button");
+  scrollBtn.className = "action-btn";
+  scrollBtn.dataset.action = "scroll";
+  scrollBtn.dataset.index = String(repIndex);
+  scrollBtn.textContent = "Scroll to";
+  scrollBtn.title = "Scroll to the largest element in this group";
+
+  const inspectBtn = document.createElement("button");
+  inspectBtn.className = "action-btn";
+  inspectBtn.dataset.action = "inspect";
+  inspectBtn.dataset.index = String(repIndex);
+  inspectBtn.textContent = "Inspect";
+  inspectBtn.title = "Select the largest element in this group in the Elements panel";
+
+  const deleteBtn = document.createElement("button");
+  deleteBtn.className = "action-btn action-toggle";
+  deleteBtn.dataset.action = "deleteGroup";
+  deleteBtn.dataset.indices = indices;
+  deleteBtn.textContent = `Delete all ${members.length}`;
+  deleteBtn.title = "Remove every element in this group from the DOM (restorable)";
+
+  const expandBtn = document.createElement("button");
+  expandBtn.className = "action-btn expand-btn";
+  expandBtn.dataset.action = "expand";
+  expandBtn.textContent = `Show ${members.length}`;
+  expandBtn.title = "List the individual elements in this group";
+
+  actions.append(scrollBtn, inspectBtn, deleteBtn, expandBtn);
+  return actions;
+}
+
+function buildSublist(members) {
+  const sub = document.createElement("div");
+  sub.className = "sublist hidden";
+  for (const m of members) {
+    const row = document.createElement("div");
+    row.className = "subrow";
+    row.dataset.index = String(m.index);
+
+    const ov = document.createElement("span");
+    ov.className = "subrow-overflow";
+    ov.textContent = `+${m.overflowPx}px`;
+
+    const size = document.createElement("span");
+    size.className = "subrow-size";
+    size.textContent = `${m.rect.width} × ${m.rect.height}px`;
+
+    const acts = document.createElement("div");
+    acts.className = "subrow-actions";
+    for (const [action, label] of [["scroll", "Scroll to"], ["inspect", "Inspect"], ["toggleDelete", "Delete"]]) {
+      const b = document.createElement("button");
+      b.className = "action-btn" + (action === "toggleDelete" ? " action-toggle" : "");
+      b.dataset.action = action;
+      b.dataset.index = String(m.index);
+      b.textContent = label;
+      acts.appendChild(b);
+    }
+
+    row.append(ov, size, acts);
+    sub.appendChild(row);
+  }
+  return sub;
+}
+
+function buildCard(members) {
+  const rep = members.reduce((a, b) => (b.overflowPx > a.overflowPx ? b : a), members[0]);
+  const n = members.length;
+  const card = document.createElement("div");
+  card.className = "card";
+  card.dataset.index = String(rep.index);
+
+  const header = document.createElement("div");
+  header.className = "card-header";
+  const axisTag = document.createElement("span");
+  axisTag.className = "axis-tag";
+  axisTag.textContent = rep.axis === "x" ? "X" : "Y";
+  const overflow = document.createElement("span");
+  overflow.className = "overflow-px";
+  overflow.textContent = `+${rep.overflowPx}px overflow`;
+  header.append(axisTag, overflow);
+
+  if (rep.kind === "scroll" || rep.kind === "scroll-content" || rep.kind === "clip") {
+    const kindTag = document.createElement("span");
+    kindTag.className = "kind-tag kind-tag-" + rep.kind.replace("scroll-content", "scrollcontent");
+    if (rep.kind === "scroll") {
+      kindTag.textContent = "scroll container";
+      kindTag.title = "This element has overflow:auto or overflow:scroll, and its content is wider than its visible area — produces an internal scrollbar.";
+    } else if (rep.kind === "scroll-content") {
+      kindTag.textContent = "intrinsic width";
+      kindTag.title = "This element sits inside a scroll container and its intrinsic layout is wider than the space it has — it's what's actually forcing the container to scroll.";
+    } else {
+      kindTag.textContent = "clipped content";
+      kindTag.title = "This element has overflow:hidden or overflow:clip, an explicit width/height, and content larger than that — the overflowing content is silently cut off.";
+    }
+    header.appendChild(kindTag);
+  }
+
+  if (n > 1) {
+    const badge = document.createElement("span");
+    badge.className = "count-badge";
+    badge.textContent = "×" + n;
+    badge.title = `${n} elements with the same tag, classes, and overflow type`;
+    header.appendChild(badge);
+  }
+
+  card.append(header, buildElementMarkup(rep), buildMeta(rep, members));
+  if (n > 1) {
+    card.append(buildGroupActions(rep.index, members));
+    card.append(buildSublist(members));
+  } else {
+    card.append(buildActions(rep.index));
+  }
+  return card;
+}
+
 function updateFilterBar(culprits) {
   if (!culprits.length) {
     filterBar.classList.add("hidden");
@@ -137,43 +282,35 @@ function renderCards(culprits) {
     emptyEl.textContent = culprits.length === 0
       ? "No overflow detected on this page."
       : `No ${activeFilter === "scroll-content" ? "intrinsic-width" : activeFilter} culprits.`;
+    setStatus(culprits.length === 0 ? "Done — no overflow." : "");
     return;
   }
   emptyEl.classList.add("hidden");
   resultsEl.classList.remove("hidden");
 
-  for (const c of filtered) {
-    const card = document.createElement("div");
-    card.className = "card";
-    card.dataset.index = String(c.index);
-
-    const header = document.createElement("div");
-    header.className = "card-header";
-    const axisTag = document.createElement("span");
-    axisTag.className = "axis-tag";
-    axisTag.textContent = c.axis === "x" ? "X" : "Y";
-    const overflow = document.createElement("span");
-    overflow.className = "overflow-px";
-    overflow.textContent = `+${c.overflowPx}px overflow`;
-    header.append(axisTag, overflow);
-    if (c.kind === "scroll" || c.kind === "scroll-content" || c.kind === "clip") {
-      const kindTag = document.createElement("span");
-      kindTag.className = "kind-tag kind-tag-" + c.kind.replace("scroll-content", "scrollcontent");
-      if (c.kind === "scroll") {
-        kindTag.textContent = "scroll container";
-        kindTag.title = "This element has overflow:auto or overflow:scroll, and its content is wider than its visible area — produces an internal scrollbar.";
-      } else if (c.kind === "scroll-content") {
-        kindTag.textContent = "intrinsic width";
-        kindTag.title = "This element sits inside a scroll container and its intrinsic layout (grid template, fixed widths, flex content) is wider than the space it has — it's what's actually forcing the container to scroll.";
-      } else {
-        kindTag.textContent = "clipped content";
-        kindTag.title = "This element has overflow:hidden or overflow:clip, an explicit width/height, and content larger than that — the overflowing content is silently cut off.";
-      }
-      header.appendChild(kindTag);
+  let groups;
+  if (groupingEnabled) {
+    const map = new Map();
+    for (const c of filtered) {
+      const k = groupKey(c);
+      if (!map.has(k)) map.set(k, []);
+      map.get(k).push(c);
     }
+    groups = Array.from(map.values());
+  } else {
+    groups = filtered.map((c) => [c]);
+  }
 
-    card.append(header, buildElementMarkup(c), buildMeta(c), buildActions(c.index));
-    resultsEl.appendChild(card);
+  for (const members of groups) {
+    resultsEl.appendChild(buildCard(members));
+  }
+
+  const groupCount = groups.length;
+  const nWord = `${filtered.length} culprit${filtered.length === 1 ? "" : "s"}`;
+  if (groupingEnabled && groupCount < filtered.length) {
+    setStatus(`${nWord} in ${groupCount} group${groupCount === 1 ? "" : "s"}.`);
+  } else {
+    setStatus(`Found ${nWord}.`);
   }
 }
 
@@ -198,10 +335,8 @@ async function scan() {
     lastCulprits = result.culprits || [];
     renderViewport(lastViewport);
     updateFilterBar(lastCulprits);
-    renderCards(lastCulprits);
+    renderCards(lastCulprits); // owns the results status line
     updateRestoreAllVisibility();
-    const n = lastCulprits.length;
-    setStatus(n === 0 ? "Done — no overflow." : `Found ${n} culprit${n === 1 ? "" : "s"}.`);
   } catch (err) {
     setStatus(err.message || String(err), true);
   } finally {
@@ -228,14 +363,17 @@ function doScrollTo(i) {
   });
 }
 
-function applyDeletedState(card, deleted) {
-  card.classList.toggle("card-deleted", deleted);
-  const btn = card.querySelector('button.action-toggle');
+function applyDeletedState(scope, deleted) {
+  const isSub = scope.classList.contains("subrow");
+  scope.classList.toggle(isSub ? "subrow-deleted" : "card-deleted", deleted);
+  const btn = isSub
+    ? scope.querySelector("button.action-toggle")
+    : scope.querySelector(":scope > .card-actions button.action-toggle");
   if (btn) btn.textContent = deleted ? "Restore" : "Delete";
   updateRestoreAllVisibility();
 }
 
-function doToggleDelete(card, i) {
+function doToggleDelete(scope, i) {
   evalInPage(`window.__overflowFinder.toggleDelete(${i})`)
     .then((res) => {
       if (!res || !res.ok) {
@@ -243,10 +381,32 @@ function doToggleDelete(card, i) {
         setStatus("Could not toggle — element may have been removed from the DOM" + why + ".", true);
         return;
       }
-      applyDeletedState(card, !!res.deleted);
+      applyDeletedState(scope, !!res.deleted);
     })
     .catch((err) => {
       setStatus("Could not toggle: " + err.message, true);
+    });
+}
+
+function doToggleDeleteGroup(card, indicesStr) {
+  const indices = indicesStr.split(",").map(Number);
+  evalInPage(`window.__overflowFinder.toggleDeleteGroup(${JSON.stringify(indices)})`)
+    .then((res) => {
+      if (!res || !res.ok) {
+        setStatus("Could not toggle group — elements may have been removed.", true);
+        return;
+      }
+      card.classList.toggle("card-deleted", !!res.deleted);
+      const gbtn = card.querySelector(':scope > .card-actions button[data-action="deleteGroup"]');
+      if (gbtn) gbtn.textContent = (res.deleted ? "Restore all " : "Delete all ") + indices.length;
+      card.querySelectorAll(".subrow").forEach((sr) => sr.classList.toggle("subrow-deleted", !!res.deleted));
+      card.querySelectorAll(".subrow button.action-toggle").forEach((b) => {
+        b.textContent = res.deleted ? "Restore" : "Delete";
+      });
+      updateRestoreAllVisibility();
+    })
+    .catch((err) => {
+      setStatus("Could not toggle group: " + err.message, true);
     });
 }
 
@@ -276,9 +436,10 @@ function updateRestoreAllVisibility() {
 
 function bindCardEvents() {
   resultsEl.addEventListener("mouseover", (e) => {
-    const card = e.target.closest(".card");
-    if (!card) return;
-    const i = Number(card.dataset.index);
+    // A sub-row highlights its own element; otherwise the card's representative.
+    const idxEl = e.target.closest(".subrow") || e.target.closest(".card");
+    if (!idxEl) return;
+    const i = Number(idxEl.dataset.index);
     evalInPage(`window.__overflowFinder.highlightIndex(${i})`).catch(() => {});
   });
   resultsEl.addEventListener("mouseleave", () => {
@@ -287,16 +448,29 @@ function bindCardEvents() {
   resultsEl.addEventListener("click", (e) => {
     const btn = e.target.closest("button.action-btn");
     if (btn) {
-      const i = Number(btn.dataset.index);
+      const action = btn.dataset.action;
       const card = btn.closest(".card");
-      if (btn.dataset.action === "scroll") doScrollTo(i);
-      else if (btn.dataset.action === "inspect") doInspect(i);
-      else if (btn.dataset.action === "toggleDelete") doToggleDelete(card, i);
+      if (action === "expand") {
+        const sub = card.querySelector(".sublist");
+        const open = !sub.classList.toggle("hidden");
+        btn.classList.toggle("open", open);
+        btn.textContent = (open ? "Hide " : "Show ") + card.querySelectorAll(".subrow").length;
+        return;
+      }
+      if (action === "deleteGroup") {
+        doToggleDeleteGroup(card, btn.dataset.indices);
+        return;
+      }
+      const i = Number(btn.dataset.index);
+      const scope = btn.closest(".subrow") || card;
+      if (action === "scroll") doScrollTo(i);
+      else if (action === "inspect") doInspect(i);
+      else if (action === "toggleDelete") doToggleDelete(scope, i);
       return;
     }
-    const card = e.target.closest(".card");
-    if (!card) return;
-    doInspect(Number(card.dataset.index));
+    const idxEl = e.target.closest(".subrow") || e.target.closest(".card");
+    if (!idxEl) return;
+    doInspect(Number(idxEl.dataset.index));
   });
 }
 
@@ -321,6 +495,12 @@ filterBar.addEventListener("click", (e) => {
   if (!chip) return;
   activeFilter = chip.dataset.kind;
   updateFilterBar(lastCulprits);
+  renderCards(lastCulprits);
+});
+
+const groupCheckbox = document.getElementById("group-similar");
+groupCheckbox.addEventListener("change", () => {
+  groupingEnabled = groupCheckbox.checked;
   renderCards(lastCulprits);
 });
 

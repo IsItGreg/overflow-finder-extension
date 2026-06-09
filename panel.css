@@ -205,6 +205,68 @@ button.primary:disabled { opacity: 0.6; cursor: progress; }
 .filter-chip.empty {
   opacity: 0.45;
 }
+.group-toggle {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--fg-dim);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.group-toggle input { margin: 0; cursor: pointer; }
+
+.count-badge {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 10px;
+  background: var(--accent);
+  color: var(--bg);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.expand-btn::before {
+  content: "▸ ";
+}
+.expand-btn.open::before {
+  content: "▾ ";
+}
+
+.sublist {
+  margin-top: 8px;
+  border-top: 1px solid var(--border);
+}
+.sublist.hidden { display: none; }
+.subrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+}
+.subrow:last-child { border-bottom: 0; }
+.subrow .subrow-overflow {
+  color: var(--danger);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  min-width: 64px;
+}
+.subrow .subrow-size {
+  color: var(--fg-dim);
+  flex: 1 1 auto;
+}
+.subrow .subrow-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.subrow.subrow-deleted .subrow-overflow,
+.subrow.subrow-deleted .subrow-size {
+  text-decoration: line-through;
+  opacity: 0.6;
+}
 
 .card-element {
   font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
