@@ -290,9 +290,13 @@
     //       not "auto" / min-content / max-content). Distinguishes
     //       "I constrained this box" from incidental overflow on a default-
     //       sized element.
-    //   (d) at least one Element child protrudes past the box on this axis —
-    //       skips pure text-overflow:ellipsis truncation (text node overflow
-    //       with no Element child poking out).
+    //   (d) at least one Element descendant protrudes past the box on this axis.
+    //       This skips pure text-overflow:ellipsis truncation (text node overflow
+    //       with no Element poking out). We check descendants, not just direct
+    //       children, because the protruding element is often several levels
+    //       deeper, bleeding through overflow:visible wrappers whose own border-
+    //       boxes stay within the clip box (e.g. a flex item with min-width:auto
+    //       that won't shrink, nested inside full-width layout wrappers).
     walk(document.body, (el) => {
       if (real.some((c) => c.el === el)) return;
       const cs = getComputedStyle(el);
@@ -305,13 +309,16 @@
       if (!dim || dim === "auto" || dim === "min-content" || dim === "max-content" || dim === "fit-content") return;
       const r = el.getBoundingClientRect();
       const far = axis === "x" ? r.right : r.bottom;
-      let hasProtrudingChild = false;
-      for (const c of el.children) {
-        const cr = c.getBoundingClientRect();
-        const cf = axis === "x" ? cr.right : cr.bottom;
-        if (cf > far + 1) { hasProtrudingChild = true; break; }
+      let hasProtrudingDescendant = false;
+      const dw = document.createTreeWalker(el, NodeFilter.SHOW_ELEMENT);
+      let d;
+      while ((d = dw.nextNode())) {
+        const dr = d.getBoundingClientRect();
+        if (dr.width === 0 && dr.height === 0) continue;
+        const df = axis === "x" ? dr.right : dr.bottom;
+        if (df > far + 1) { hasProtrudingDescendant = true; break; }
       }
-      if (!hasProtrudingChild) return;
+      if (!hasProtrudingDescendant) return;
       real.push({ el, overflow: scrollSize - clientSize, kind: "clip" });
     });
 
